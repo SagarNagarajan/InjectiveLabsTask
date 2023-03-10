@@ -142,7 +142,6 @@ class LimitOrderBook:
         self.best_ask = None
         self._price_levels = {}
         self._orders = {}
-        print("abv")
 
     @property
     def top_level(self):

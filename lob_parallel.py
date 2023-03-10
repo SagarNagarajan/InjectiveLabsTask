@@ -121,6 +121,7 @@ import logging
 import time
 from itertools import islice
 # Import Third-Party
+import multiprocessing
 
 # Import Homebrew
 
@@ -142,7 +143,13 @@ class LimitOrderBook:
         self.best_ask = None
         self._price_levels = {}
         self._orders = {}
-        print("abv")
+
+        self.bids_lock = multiprocessing.Lock()
+        self.asks_lock = multiprocessing.Lock()
+        self.best_bid_lock = multiprocessing.Lock()
+        self.best_ask_lock = multiprocessing.Lock()
+        self._price_levels_lock = multiprocessing.Lock()
+        self._orders_lock = multiprocessing.Lock()
 
     @property
     def top_level(self):
@@ -180,9 +187,11 @@ class LimitOrderBook:
         :param order:
         :return:
         """
+        self._orders_lock.acquire()
         size_diff = self._orders[order.uid].size - order.size
         self._orders[order.uid].size = order.size
         self._orders[order.uid].parent_limit.size -= size_diff
+        self._orders_lock.release()
 
     def remove(self, order):
         """Removes an order from the book.
@@ -199,7 +208,9 @@ class LimitOrderBook:
         """
         # Remove Order from self._orders
         try:
+            self._orders_lock.acquire()
             popped_item = self._orders.pop(order.uid)
+            self._orders_lock.release()
         except KeyError:
             return False
 
@@ -209,24 +220,31 @@ class LimitOrderBook:
         # Remove Limit Level from self._price_levels and tree, if no orders are
         # left within that limit level
         try:
+            self._price_levels_lock.acquire()
             if len(self._price_levels[popped_item.price]) == 0:
                 popped_limit_level = self._price_levels.pop(popped_item.price)
                 # Remove Limit Level from LimitLevelTree
                 if popped_item.is_bid:
+                    self.best_bid_lock.acquire()
                     if popped_limit_level == self.best_bid:
                         if not isinstance(popped_limit_level.parent, LimitLevelTree):
                             self.best_bid = popped_limit_level.parent
                         else:
                             self.best_bid = None
-
+                    self.best_bid_lock.release()
                     popped_limit_level.remove()
+
                 else:
+                    self.best_ask_lock.acquire()
                     if popped_limit_level == self.best_ask:
                         if not isinstance(popped_limit_level.parent, LimitLevelTree):
                             self.best_ask = popped_limit_level.parent
                         else:
                             self.best_ask = None
                     popped_limit_level.remove()
+                    self.best_ask_lock.release()
+            self._price_levels_lock.release()
+
         except KeyError:
             pass
 
@@ -238,27 +256,43 @@ class LimitOrderBook:
         :param order: Order() Instance
         :return:
         """
+        self._price_levels_lock.acquire()
 
         if order.price not in self._price_levels:
             limit_level = LimitLevel(order)
+            self._orders_lock.acquire()
             self._orders[order.uid] = order
+            self._orders_lock.release()
             self._price_levels[limit_level.price] = limit_level
 
             if order.is_bid:
+                self.bids_lock.acquire()
                 self.bids.insert(limit_level)
+                self.bids_lock.release()
+
+                self.best_bid_lock.acquire()
                 if self.best_bid is None or limit_level.price > self.best_bid.price:
                     self.best_bid = limit_level
+                self.best_bid_lock.release()
 
             else:
+                self.asks_lock.acquire()    
                 self.asks.insert(limit_level)
+                self.asks_all.release()
+
+                self.best_ask_lock.acquire()
                 if self.best_ask is None or limit_level.price < self.best_ask.price:
                     self.best_ask = limit_level
+                self.best_ask_lock.release()                    
         else:
             # The price level already exists, hence we need to append the order
             # to that price level
+            self._orders_lock.acquire()
             self._orders[order.uid] = order
+            self._orders_lock.release()
             self._price_levels[order.price].append(order)
-    
+        self._price_levels_lock.release()
+   
     
     def levels(self, depth=None):
         """Returns the price levels as a dict {'bids': [bid1, ...], 'asks': [ask1, ...]}
@@ -267,9 +301,13 @@ class LimitOrderBook:
         :return:
         """
         levels_sorted = sorted(self._price_levels.keys())
+        self.best_ask_lock.acquire()
         bids_all = reversed([price_level for price_level in levels_sorted if price_level < self.best_ask.price])
+        self.best_ask_lock.release()
         bids = list(islice(bids_all, depth)) if depth else list(bids_all)
+        self.best_bid_lock.acquire()
         asks_all = (price_level for price_level in levels_sorted if price_level > self.best_bid.price)
+        self.best_bid_lock.release()
         asks = list(islice(asks_all, depth)) if depth else list(asks_all)
         levels_dict = {
             'bids' : [self._price_levels[price] for price in bids],
