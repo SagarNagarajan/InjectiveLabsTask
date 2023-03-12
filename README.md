@@ -12,11 +12,11 @@ d) Create a new ParallelLimitOrderBook class that inherits from the original Ord
 
 e) This new class adds several new attributes:
 
-num_threads: the number of parallel threads to use.
-threads: a list of the Thread objects that will be used to run each parallel thread.
-orders_queue: a Condition object that will be used to synchronize access to the orders list.
-process_orders: a new method that will be used to process orders in parallel using multithreading.
-process_order_book: a modified version of the original process_order_book method that now uses multithreading to process orders in parallel.
+_num_threads_: the number of parallel threads to use.
+_threads_: a list of the Thread objects that will be used to run each parallel thread.
+_orders_queue_: a Condition object that will be used to synchronize access to the orders list.
+_process_orders_: a new method that will be used to process orders in parallel using multithreading.
+_process_order_book_: a modified version of the original process_order_book method that now uses multithreading to process orders in parallel.
 
 f) The process_orders method processes a list of orders using a Condition object to synchronize access to the orders list. Each thread in the pool will call this method with a chunk of orders to process.
 
