@@ -12,7 +12,7 @@ d) Create a new ParallelLimitOrderBook class that inherits from the original Ord
 
 e) This new class adds several new attributes:
 
-_num_threads_: the number of parallel threads to use.
+*num_threads*: the number of parallel threads to use.
 _threads_: a list of the Thread objects that will be used to run each parallel thread.
 _orders_queue_: a Condition object that will be used to synchronize access to the orders list.
 _process_orders_: a new method that will be used to process orders in parallel using multithreading.
