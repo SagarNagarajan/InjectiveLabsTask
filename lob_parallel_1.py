@@ -140,7 +140,7 @@ class LimitOrderBook:
         self.asks = LimitLevelTree()
         self.best_bid = None
         self.best_ask = None
-        self._price_levels = {}
+        self._price_levels = collection.defaultdict(list)
         self._orders = {}
 
     @property
@@ -207,27 +207,24 @@ class LimitOrderBook:
 
         # Remove Limit Level from self._price_levels and tree, if no orders are
         # left within that limit level
-        try:
-            if len(self._price_levels[popped_item.price]) == 0:
-                popped_limit_level = self._price_levels.pop(popped_item.price)
-                # Remove Limit Level from LimitLevelTree
-                if popped_item.is_bid:
-                    if popped_limit_level == self.best_bid:
-                        if not isinstance(popped_limit_level.parent, LimitLevelTree):
-                            self.best_bid = popped_limit_level.parent
-                        else:
-                            self.best_bid = None
+        if len(self._price_levels[popped_item.price]) == 0:
+            popped_limit_level = self._price_levels.pop(popped_item.price)
+            # Remove Limit Level from LimitLevelTree
+            if popped_item.is_bid:
+                if popped_limit_level == self.best_bid:
+                    if not isinstance(popped_limit_level.parent, LimitLevelTree):
+                        self.best_bid = popped_limit_level.parent
+                    else:
+                        self.best_bid = None
 
-                    popped_limit_level.remove()
-                else:
-                    if popped_limit_level == self.best_ask:
-                        if not isinstance(popped_limit_level.parent, LimitLevelTree):
-                            self.best_ask = popped_limit_level.parent
-                        else:
-                            self.best_ask = None
-                    popped_limit_level.remove()
-        except KeyError:
-            pass
+                popped_limit_level.remove()
+            else:
+                if popped_limit_level == self.best_ask:
+                    if not isinstance(popped_limit_level.parent, LimitLevelTree):
+                        self.best_ask = popped_limit_level.parent
+                    else:
+                        self.best_ask = None
+                popped_limit_level.remove()
 
         return popped_item
 

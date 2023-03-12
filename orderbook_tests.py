@@ -9,9 +9,12 @@ from lob import LimitOrderBook, Order
 import time
 # Init Logging Facilities
 log = logging.getLogger(__name__)
-
+import sys
 
 class OrderTests(TestCase):
+    def __init__(self):
+        super().__init__()
+        self.total_orders = int(sys.argv[1])
 
     def test_adding_a_new_order_works(self):
         lob = LimitOrderBook()
@@ -89,7 +92,7 @@ class OrderTests(TestCase):
     
     def load_book(self, lob):
         orders = []
-        for i in range(100000):
+        for i in range(self.total_orders ):
             orders.append(Order(uid=i+1, is_bid=random.randint(0, 1), size=5, price= 5 * random.randint(1, 20)))
         # orders = [
         #     Order(uid=1, is_bid=True, size=5, price=100),
@@ -134,4 +137,7 @@ class OrderTests(TestCase):
 if __name__ == "__main__":
     orderTests = OrderTests()
     lob = LimitOrderBook()
+    orderTests.test_adding_a_new_order_works()
+    orderTests.test_removing_orders_works()
     orderTests.load_book(lob)
+

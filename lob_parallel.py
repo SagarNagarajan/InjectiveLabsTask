@@ -207,10 +207,9 @@ class LimitOrderBook:
         :return:
         """
         # Remove Order from self._orders
+        
         try:
-            self._orders_lock.acquire()
             popped_item = self._orders.pop(order.uid)
-            self._orders_lock.release()
         except KeyError:
             return False
 

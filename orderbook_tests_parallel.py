@@ -1,18 +1,20 @@
 # Import Built-Ins
 import logging
 from unittest import TestCase
-import time
-# Import Third-Party
 import random
+# Import Third-Party
 
 # Import Homebrew
-from lob_parallel import LimitOrderBook, Order
-import multiprocessing
+from lob import ParallelLimitOrderBook,LimitOrderBook, Order
+import time
 # Init Logging Facilities
 log = logging.getLogger(__name__)
-
+import sys
 
 class OrderTests(TestCase):
+    def __init__(self):
+        super().__init__()
+        self.total_orders = int(sys.argv[1])
 
     def test_adding_a_new_order_works(self):
         lob = LimitOrderBook()
@@ -88,25 +90,22 @@ class OrderTests(TestCase):
         self.assertNotIn(removed_bid_order_2.uid, lob._orders)
         self.assertNotIn(removed_bid_order_2.price, lob._price_levels)
     
-
-
     def load_book(self, lob):
-        print(lob)
         orders = []
-        for i in range(100):
+        for i in range(self.total_orders ):
             orders.append(Order(uid=i+1, is_bid=random.randint(0, 1), size=5, price= 5 * random.randint(1, 20)))
-
-        start_time = time.time()
-
-        def parallel_process_lob(lob, order):
-            lob.process(order)    
-        processes = []
+        # orders = [
+        #     Order(uid=1, is_bid=True, size=5, price=100),
+        #     Order(uid=2, is_bid=True, size=5, price=95),
+        #     Order(uid=3, is_bid=True, size=5, price=90),
+        #     Order(uid=4, is_bid=False, size=5, price=200),
+        #     Order(uid=5, is_bid=False, size=5, price=205),
+        #     Order(uid=6, is_bid=False, size=5, price=210),
+        #     ]
+        start_time = time.time()            
         for order in orders:
-            process = multiprocessing.Process(target=parallel_process_lob, args=(lob,order,))
-            process.start()
-            processes.append(process)
+             lob.process(order)
         end_time = time.time()
-        
         print("My function took", end_time - start_time, "seconds to run.")
 
 
@@ -135,9 +134,10 @@ class OrderTests(TestCase):
         self.check_levels_format(levels)
         for side in ('bids', 'asks'):
             self.assertEqual(len(levels[side]), 2)
-        
 if __name__ == "__main__":
     orderTests = OrderTests()
-    lob = LimitOrderBook()
-    orderTests.load_book(lob)
+    lob = ParallelLimitOrderBook()
+    orderTests.test_adding_a_new_order_works()
     orderTests.test_removing_orders_works()
+    orderTests.load_book(lob)
+

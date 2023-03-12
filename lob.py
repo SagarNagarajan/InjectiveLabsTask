@@ -121,13 +121,13 @@ import logging
 import time
 from itertools import islice
 # Import Third-Party
+import threading as th
 
 # Import Homebrew
 
 
 # Init Logging Facilities
 log = logging.getLogger(__name__)
-
 
 class LimitOrderBook:
     """Limit Order Book (LOB) implementation for High Frequency Trading
@@ -142,7 +142,7 @@ class LimitOrderBook:
         self.best_ask = None
         self._price_levels = {}
         self._orders = {}
-        print("abv")
+        self.process_lock = th.Lock()
 
     @property
     def top_level(self):
@@ -164,13 +164,14 @@ class LimitOrderBook:
         :param order:
         :return:
         """
-        if order.size == 0:
-            self.remove(order)
-        else:
-            try:
-                self.update(order)
-            except KeyError:
-                self.add(order)
+        with self.process_lock:
+            if order.size == 0:
+                self.remove(order)
+            else:
+                try:
+                    self.update(order)
+                except KeyError:
+                    self.add(order)
 
     def update(self, order):
         """Updates an existing order in the book.
@@ -277,6 +278,32 @@ class LimitOrderBook:
             }
         return levels_dict
 
+
+class ParallelLimitOrderBook(LimitOrderBook):
+    def __init__(self, *args, num_threads=4, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.num_threads = num_threads
+        self.threads = []
+        self.orders_queue = th.Condition()
+
+    def process_orders(self, orders):
+        with self.orders_queue:
+            for order in orders:
+                self.orders_queue.notify()
+                self.orders_queue.wait()
+                self.process(order)
+            self.orders_queue.notify_all()
+
+    def process_order_book(self, orders):
+        chunk_size = (len(orders) + self.num_threads - 1) // self.num_threads
+        chunks = [orders[i:i+chunk_size] for i in range(0, len(orders), chunk_size)]
+        for i in range(self.num_threads):
+            t = th.Thread(target=self.process_orders, args=(chunks[i],))
+            t.start()
+            self.threads.append(t)
+        for t in self.threads:
+            t.join()
+            
 class LimitLevel:
     """AVL BST node.
 
@@ -714,3 +741,5 @@ class Order:
 
     def __repr__(self):
         return str((self.uid, self.is_bid, self.price, self.size, self.timestamp))
+
+        
